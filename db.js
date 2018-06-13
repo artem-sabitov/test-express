@@ -12,11 +12,12 @@ function mapper() {
                 'SELECT 1 FROM customers WHERE phone = $1 OR email_hash = crypt($2, email_hash)',
                 [customer.getPhone(), customer.getEmail()]
             );
+
             if (exist !== null) {
                 return false;
             }
 
-            return null === await database.none(
+            await database.none(
                 'INSERT INTO customers(id, encrypted_email, email_hash, phone) VALUES (uuid_generate_v4(), $1, crypt($2, gen_salt(\'bf\', 8)), $3)',
                 [
                     customer.getEncryptedEmail(),
@@ -24,6 +25,8 @@ function mapper() {
                     customer.getPhone(),
                 ]
             );
+
+            return true;
         } catch (e) {
             console.log(e);
 
@@ -35,7 +38,6 @@ function mapper() {
             const row = await database.oneOrNone(
                 'SELECT encrypted_email, phone FROM customers WHERE email_hash = crypt($1, email_hash)', email
             );
-            console.log(row);
             if (row === null) {
                 return null;
             }

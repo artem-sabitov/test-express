@@ -1,22 +1,14 @@
-var express = require('express');
-var Mapper = require('../db');
-var mapper = new Mapper();
-var Crypto = require('../utils/crypto');
-var crypto = new Crypto();
-var Customer = require('../models/customer');
-var router = express.Router();
+const express = require('express');
+const Mapper = require('../db');
+const mapper = new Mapper();
+const Crypto = require('../utils/crypto');
+const crypto = new Crypto();
+const Customer = require('../models/customer');
+const router = express.Router();
+const Mailer = require('../mailer');
+const mailer = new Mailer();
 
 const contentType = 'application/json';
-
-router.get('/', async function (request, response) {
-    console.log(crypto.encrypt('test@test.me', 'test@test.me'));
-    console.log(crypto.decrypt('test@test.me', '1LbGlFsNKKD5PhsYUHjQYzLzFsfcM634tH520MUUttU='));
-    return;
-
-    var result = await mapper.persistCustomer(customer);
-    console.log(result);
-    response.send(result);
-});
 
 router.post('/register', async function (request, response) {
     var email = request.body.email || null;
@@ -36,19 +28,17 @@ router.post('/register', async function (request, response) {
         crypto.encrypt(email, email)
     );
 
-    mapper.persistCustomer(customer).then(
-        function (result) {
-            response.contentType(contentType);
-            var message = result ? {"message": "ok"} : {"message": "already_exist"};
-            response.send(message);
-        }
-    );
+    var result = await mapper.persistCustomer(customer);
+    var message = result ? {"message": "ok"} : {"message": "already_exist"};
+
+    response.contentType(contentType);
+    response.send(message);
 
     return;
 });
 
 router.post('/restore', async function (request, response) {
-    var email = request.body.email;
+    var email = request.body.email || null;
     if (email === null) {
         response.statusCode = 400;
         response.contentType(contentType);
@@ -57,11 +47,24 @@ router.post('/restore', async function (request, response) {
         return;
     }
 
-    return mapper.findByEmail(email).then(
-        function (result) {
-            response.send(result);
-        }
-    );
-});
+    var result = await mapper.findByEmail(email);
+    if (!(result instanceof Customer)) {
+        response.statusCode = 400;
+        response.contentType(contentType);
+        response.send({"message": "invalid"});
+
+        return;
+    }
+
+    try {
+        await mailer.send(result.email, result.phone);
+        response.send({"message": "sent"});
+    } catch (e) {
+        response.send({"message": "smtp_error"});
+    }
+
+    return;
+})
+;
 
 module.exports = router;
