@@ -1,6 +1,8 @@
 const nodemailer = require('nodemailer');
 const smtpTransport = require("nodemailer-smtp-transport");
 
+// set 'true' for local test
+const smpt_fake_mode = false;
 // provide your smtp options
 const host = null;
 const port = null;
@@ -9,7 +11,7 @@ const pass = null;
 const secure = false;
 
 function Mailer() {
-    if (!host || !port || !user || !pass) {
+    if (!smpt_fake_mode && (!host || !port || !user || !pass)) {
         throw new Error('Please change options for the outgoing mail (SMTP) server');
     }
 
@@ -26,14 +28,20 @@ function Mailer() {
     );
 
     this.send = async function (email, phone) {
-        var mail = {
+        if (smpt_fake_mode) {
+            console.log(email, phone);
+
+            return;
+        }
+
+        await this.transport.sendMail({
             to: email,
             subject: 'Your phone',
             text: phone,
             from: user
-        }
-        var result = await this.transport.sendMail(mail);
-        return result
+        });
+
+        return;
     }
 }
 
